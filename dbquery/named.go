@@ -122,7 +122,9 @@ type PreparedQuery struct {
 }
 
 // Prepares named queries
-// Approx. saves 2000ns/query on average queries
+// Prepared queries save a decent amount of computation
+// that need to be done per query. Without preparation
+// each query would approximately take 2000ns.
 func (api *API) PrepareNamed(query string, args ...interface{}) (*PreparedQuery, error) {
 	compiledQuery, params, err := api.lexer.Compile(query)
 	if err != nil {

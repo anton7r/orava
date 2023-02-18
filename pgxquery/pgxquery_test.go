@@ -16,8 +16,8 @@ var (
 	testAPI *dbscan.API
 )
 
-func getAPI() (*dbquery.API, error) {
-	dbqueryAPI, err := pgxscan.NewDBScanAPI(dbscan.WithLexer(':', dbscan.SequentialDollarDelim))
+func getAPI() (*pgxquery.API, error) {
+	dbqueryAPI, err := dbquery.NewDBScanAPI(dbquery.WithLexer(':', dbquery.SequentialDollarDelim))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
