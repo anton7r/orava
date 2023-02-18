@@ -69,7 +69,7 @@ func (b builder) String() string {
 }
 
 func wrapNamedError(err error) error {
-	return errors.Wrap(err, "scany named")
+	return errors.Wrap(err, "orava named")
 }
 
 // Compile is used for parsing and compiling sql queries

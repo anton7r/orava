@@ -1,4 +1,4 @@
-package sqlquery_test
+package pgxquery_test
 
 import "github.com/jackc/pgx/v4/pgxpool"
 
