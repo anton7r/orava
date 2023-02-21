@@ -9,9 +9,9 @@ import (
 
 type API struct {
 	scanyApi        *dbscan.API
-	fieldMapperFn   NameMapperFunc
-	columnSeparator string
-	structTagKey    string
+	fieldMapperFn   NameMapperFunc // more or less should be remove, becuase they already exist in the scany api
+	columnSeparator string // more or less should be remove, becuase they already exist in the scany api
+	structTagKey    string // more or less should be remove, becuase they already exist in the scany api
 	lexer           *Lexer
 }
 

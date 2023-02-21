@@ -4,11 +4,10 @@ import (
 	"context"
 
 	"github.com/anton7r/orava/dbquery"
-	"github.com/georgysavva/scany/v2/dbscan"
 	"github.com/georgysavva/scany/v2/pgxscan"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pkg/errors"
 )
 
@@ -16,7 +15,7 @@ import (
 // For example, it can be: *pgxpool.Pool, *pgx.Conn or pgx.Tx.
 type Querier interface {
 	Query(ctx context.Context, query string, args ...interface{}) (pgx.Rows, error)
-	Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 }
 
 var (
@@ -26,12 +25,14 @@ var (
 )
 
 type API struct {
+	pgxscanAPI *pgxscan.API
 	dbqueryAPI *dbquery.API
 }
 
 // NewAPI creates new API instance from dbquery.API instance.
 func NewAPI(dbqueryAPI *dbquery.API) (*API, error) {
 	api := &API{
+		pgxscanAPI: pgxscan.NewAPI(),
 		dbqueryAPI: dbqueryAPI,
 	}
 	return api, nil
@@ -108,25 +109,12 @@ func (api *API) QueryNamed(ctx context.Context, db Querier, query string, arg in
 		return nil, err
 	}
 
-	return db.Query(ctx, compiledQuery, args)
+	return api.Query(ctx, db, compiledQuery, args)
 }
 
-// ScanAll is a wrapper around the dbscan.ScanAll function.
-// See dbscan.ScanAll for details.
-func (api *API) ScanAll(dst interface{}, rows pgx.Rows) error {
-	err := api.dbqueryAPI.ScanAll(dst, pgxscan.NewRowsAdapter(rows))
-	return errors.WithStack(err)
-}
-
-// ScanOne is a wrapper around the dbscan.ScanOne function.
-// See dbscan.ScanOne for details. If no rows are found it
-// returns a pgx.ErrNoRows error.
-func (api *API) ScanOne(dst interface{}, rows pgx.Rows) error {
-	err := api.dbqueryAPI.ScanOne(dst, pgxscan.NewRowsAdapter(rows))
-	if dbscan.NotFound(err) {
-		return errors.WithStack(pgx.ErrNoRows)
-	}
-	return errors.WithStack(err)
+// Query is a wrapper around pgx's own query method
+func (api *API) Query(ctx context.Context, db Querier, query string, args ...interface{}) (pgx.Rows, error) {
+	return db.Query(ctx, query, args)
 }
 
 type PreparedQuery struct {
@@ -183,21 +171,4 @@ func (pq *PreparedQuery) QueryNamed(ctx context.Context, db Querier, arg interfa
 	}
 
 	return db.Query(ctx, query, args)
-}
-
-//TODO: DO NOT EXPOSE NewRowScanner
-
-// NewRowScanner returns a new RowScanner instance.
-func (api *API) NewRowScanner(rows pgx.Rows) *RowScanner {
-	ra := pgxscan.NewRowsAdapter(rows)
-	return &RowScanner{RowScanner: api.dbqueryAPI.NewRowScanner(ra)}
-}
-
-//TODO: DO NOT EXPOSE ScanRow
-
-// ScanRow is a wrapper around the dbscan.ScanRow function.
-// See dbscan.ScanRow for details.
-func (api *API) ScanRow(dst interface{}, rows pgx.Rows) error {
-	err := api.dbqueryAPI.ScanRow(dst, pgxscan.NewRowsAdapter(rows))
-	return errors.WithStack(err)
 }

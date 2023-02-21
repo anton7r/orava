@@ -1,6 +1,6 @@
 package pgxquery_test
 
-import "github.com/jackc/pgx/v4/pgxpool"
+import "github.com/jackc/pgx/v5/pgxpool"
 
 func ExampleSelectNamed() {
 	type User struct {
@@ -16,7 +16,7 @@ func ExampleSelectNamed() {
 
 	api, _ := getAPI()
 
-	db, _ := pgxpool.Connect(ctx, "example-connection-url")
+	db, _ := pgxpool.New(ctx, "example-connection-url")
 
 	var users []*User
 	if err := api.SelectNamed(
@@ -37,7 +37,7 @@ func ExampleGetNamed() {
 
 	api, _ := getAPI()
 
-	db, _ := pgxpool.Connect(ctx, "example-connection-url")
+	db, _ := pgxpool.New(ctx, "example-connection-url")
 
 	var user User
 	if err := api.GetNamed(
@@ -56,7 +56,7 @@ func ExampleExecNamed() {
 		Age      int
 	}
 
-	db, _ := pgxpool.Connect(ctx, "example-connection-url")
+	db, _ := pgxpool.New(ctx, "example-connection-url")
 
 	user := &User{
 		ID:       "billy",
