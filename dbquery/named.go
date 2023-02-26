@@ -13,8 +13,8 @@ type Lexer struct {
 	compileDelim DriverDelim
 }
 
-func newLexer(delim rune, compileDelim DriverDelim) *Lexer {
-	return &Lexer{
+func newLexer(delim rune, compileDelim DriverDelim) Lexer {
+	return Lexer{
 		delim:        delim,
 		compileDelim: compileDelim,
 	}

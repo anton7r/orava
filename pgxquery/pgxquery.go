@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/anton7r/orava/dbquery"
-	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,14 +24,12 @@ var (
 )
 
 type API struct {
-	pgxscanAPI *pgxscan.API
 	dbqueryAPI *dbquery.API
 }
 
 // NewAPI creates new API instance from dbquery.API instance.
 func NewAPI(dbqueryAPI *dbquery.API) (*API, error) {
 	api := &API{
-		pgxscanAPI: pgxscan.NewAPI(),
 		dbqueryAPI: dbqueryAPI,
 	}
 	return api, nil
@@ -86,7 +83,7 @@ func (api *API) GetNamed(ctx context.Context, db Querier, dst interface{}, query
 func (api *API) Exec(ctx context.Context, db Querier, query string, args ...interface{}) (pgconn.CommandTag, error) {
 	tag, err := db.Exec(ctx, query, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "orava: exec")
+		return pgconn.CommandTag{}, errors.Wrap(err, "orava: exec")
 	}
 
 	return tag, nil
@@ -96,7 +93,7 @@ func (api *API) Exec(ctx context.Context, db Querier, query string, args ...inte
 func (api *API) ExecNamed(ctx context.Context, db Querier, query string, arg interface{}) (pgconn.CommandTag, error) {
 	compiledQuery, args, err := api.dbqueryAPI.NamedQueryParams(query, arg)
 	if err != nil {
-		return nil, err
+		return pgconn.CommandTag{}, err
 	}
 
 	return api.Exec(ctx, db, compiledQuery, args)
@@ -157,7 +154,7 @@ func (pq *PreparedQuery) GetNamed(ctx context.Context, db Querier, dst interface
 func (pq *PreparedQuery) ExecNamed(ctx context.Context, db Querier, arg interface{}) (pgconn.CommandTag, error) {
 	query, args, err := pq.prep.GetQuery(arg)
 	if err != nil {
-		return nil, err
+		return pgconn.CommandTag{}, err
 	}
 
 	return pq.api.Exec(ctx, db, query, args)
@@ -171,4 +168,61 @@ func (pq *PreparedQuery) QueryNamed(ctx context.Context, db Querier, arg interfa
 	}
 
 	return db.Query(ctx, query, args)
+}
+
+// NotFound is a helper function to check if an error
+// is `pgx.ErrNoRows`.
+func NotFound(err error) bool {
+	return errors.Is(err, pgx.ErrNoRows)
+}
+
+// ScanAll is a wrapper around the dbscan.ScanAll function.
+// See dbscan.ScanAll for details.
+func (api *API) ScanAll(dst interface{}, rows pgx.Rows) error {
+	err := api.dbqueryAPI.ScanAll(dst, NewRowsAdapter(rows))
+	return errors.WithStack(err)
+}
+
+// ScanOne is a wrapper around the dbscan.ScanOne function.
+// See dbscan.ScanOne for details. If no rows are found it
+// returns a pgx.ErrNoRows error.
+func (api *API) ScanOne(dst interface{}, rows pgx.Rows) error {
+	err := api.dbqueryAPI.ScanOne(dst, NewRowsAdapter(rows))
+	if NotFound(err) {
+		return errors.WithStack(pgx.ErrNoRows)
+	}
+	return errors.WithStack(err)
+}
+
+// ScanRow is a wrapper around the dbscan.ScanRow function.
+// See dbscan.ScanRow for details.
+func (api *API) ScanRow(dst interface{}, rows pgx.Rows) error {
+	err := api.dbqueryAPI.ScanRow(dst, NewRowsAdapter(rows))
+	return errors.WithStack(err)
+}
+
+// RowsAdapter makes pgx.Rows compliant with the dbscan.Rows interface.
+// See dbscan.Rows for details.
+type RowsAdapter struct {
+	pgx.Rows
+}
+
+// NewRowsAdapter returns a new RowsAdapter instance.
+func NewRowsAdapter(rows pgx.Rows) *RowsAdapter {
+	return &RowsAdapter{Rows: rows}
+}
+
+// Columns implements the dbscan.Rows.Columns method.
+func (ra RowsAdapter) Columns() ([]string, error) {
+	columns := make([]string, len(ra.Rows.FieldDescriptions()))
+	for i, fd := range ra.Rows.FieldDescriptions() {
+		columns[i] = string(fd.Name)
+	}
+	return columns, nil
+}
+
+// Close implements the dbscan.Rows.Close method.
+func (ra RowsAdapter) Close() error {
+	ra.Rows.Close()
+	return nil
 }
